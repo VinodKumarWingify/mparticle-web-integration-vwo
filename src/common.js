@@ -1,7 +1,7 @@
 function Common() {}
 
-Common.prototype.exampleMethod = function () {
-    return 'I am an example';
+Common.prototype.prependSource = function (name) {
+    return `mparticle.${name}`;
 }
 
 module.exports = Common;

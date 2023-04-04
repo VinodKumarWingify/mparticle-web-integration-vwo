@@ -3,8 +3,8 @@ var VWOKit = (function (exports) {
 
     function Common() {}
 
-    Common.prototype.exampleMethod = function () {
-        return 'I am an example';
+    Common.prototype.prependSource = function (name) {
+        return `mparticle.${name}`;
     };
 
     var common = Common;
@@ -76,47 +76,47 @@ var VWOKit = (function (exports) {
 
     var commerceHandler = CommerceHandler;
 
-    /*
-    A non-ecommerce event has the following schema:
+    // function prependSource(name) {
+    //     return `mparticle.${name}`;
+    // }
 
-    {
-        DeviceId: "a80eea1c-57f5-4f84-815e-06fe971b6ef2",
-        EventAttributes: {test: "Error", t: 'stack trace in string form'},
-        EventName: "Error",
-        MPID: "123123123123",
-        UserAttributes: {userAttr1: 'value1', userAttr2: 'value2'},
-        UserIdentities: [{Identity: 'email@gmail.com', Type: 7}]
-        User Identity Types can be found here:
-    }
-
-    */
-    function formatAttributes(attributes) {
+    function formatAttributes(attributes, sanitizeName) {
         var formattedAttributes = {};
-        var keys = Object.keys(attributes);
-        for (var index=0; index < keys.length; index++) {
-          formattedAttributes['mparticle.'+keys[index]] = attributes[keys[index]];
+        for (var key in attributes) {
+            var sanitisedAttributeKey = sanitizeName(key);
+            formattedAttributes[sanitisedAttributeKey] = attributes[key];
         }
         return formattedAttributes;
     }
 
-    function triggerVWOEvent(event) {
+    function triggerVWOEvent(event, sanitizeName) {
+        console.log(`Event:`, event);
         var attributes = {};
+        var sourceObject = {
+            source: 'mparticle.web'
+        };
         if (event.CustomFlags && Object.keys(event.CustomFlags).length) {
             attributes = event.CustomFlags;
-        }
-        else {
+        } else {
             attributes = event.EventAttributes;
         }
-        if (window.VWO && (window.VWO.event && window.VWO.visitor)) {
-            if (event.EventCategory === 6 || event.EventCategory === 5) { // mParticle.EventType.UserPreference, UserContent
-                var formattedAttributes = formatAttributes(attributes);
-                window.VWO.visitor(formattedAttributes, { source: 'mparticle.web' });
+
+        if (window.VWO) {
+            console.log(`Event Category: ${event.EventCategory}`);
+            // mParticle.EventType.UserPreference, UserContent
+            if (event.EventCategory === 6 || event.EventCategory === 5) { 
+                window.VWO.visitor = window.VWO.visitor || function () {window.VWO.push(["visitor"].concat([].slice.call(arguments)));};
+                var formattedAttributes = formatAttributes(attributes, sanitizeName);
+                console.log(formattedAttributes);
+                window.VWO.visitor(formattedAttributes, sourceObject);
+            } else {
+                window.VWO.event = window.VWO.event || function () {window.VWO.push(["event"].concat([].slice.call(arguments)));};
+                sourceObject['ogName'] =event.EventName;
+                var formatedEventName = sanitizeName(event.EventName);
+                console.log(`Formated Name: ${formatedEventName}`);
+                window.VWO.event(formatedEventName, event.EventAttributes, sourceObject);
             }
-            else {
-                window.VWO.event(event.EventName, event.EventAttributes);
-            }
-        }
-        else {
+        } else {
             console.error('Please use Event-Arch account only to proceed with VWO');
         }
     }
@@ -124,25 +124,15 @@ var VWOKit = (function (exports) {
     function EventHandler(common) {
         this.common = common || {};
     }
+
     EventHandler.prototype.logEvent = function(event) {
-        triggerVWOEvent(event);
+        triggerVWOEvent(event, this.common.prependSource);
     };
-    EventHandler.prototype.logError = function(event) {
-        // The schema for a logError event is the same, but noteworthy differences are as follows:
-        // {
-        //     EventAttributes: {m: 'name of error passed into MP', s: "Error", t: 'stack trace in string form if applicable'},
-        //     EventName: "Error"
-        // }
-        triggerVWOEvent(event);
-    };
-    EventHandler.prototype.logPageView = function(event) {
-        /* The schema for a logPagView event is the same, but noteworthy differences are as follows:
-            {
-                EventAttributes: {hostname: "www.google.com", title: 'Test Page'},  // These are event attributes only if no additional event attributes are explicitly provided to mParticle.logPageView(...)
-            }
-            */
-        triggerVWOEvent(event);
-    };
+
+    // Not required for our use case
+
+    EventHandler.prototype.logError = function(event) {};
+    EventHandler.prototype.logPageView = function(event) {};
 
     var eventHandler = EventHandler;
 
@@ -211,17 +201,17 @@ var VWOKit = (function (exports) {
     */
         initForwarder: function(forwarderSettings, testMode, userAttributes, userIdentities, processEvent, eventQueue, isInitialized, common, appVersion, appName, customFlags, clientId) {
             /* `forwarderSettings` contains your SDK specific settings such as apiKey that your customer needs in order to initialize your SDK properly */
-            if(forwarderSettings.account_id) {
+            if(forwarderSettings.accountId) {
                 window._vwo_code=window._vwo_code || (function() {
-                    var account_id=forwarderSettings.account_id,
-                    version=forwarderSettings.version || 1.4,
-                    settings_tolerance=forwarderSettings.settings_tolerance || 2000,
-                    library_tolerance=forwarderSettings.library_tolerance || 2500,
-                    use_existing_jquery=forwarderSettings.use_existing_jquery || false,
+                    var account_id=forwarderSettings.accountId,
+                    version= 1.4,
+                    settings_tolerance=forwarderSettings.settingsTolerance || 2000,
+                    library_tolerance=forwarderSettings.libraryTolerance || 2500,
+                    use_existing_jquery=forwarderSettings.useExistingJquery || false,
                     is_spa=forwarderSettings.is_spa || 1,
-                    hide_element=forwarderSettings.hide_element || 'body',
+                    hide_element= 'body',
                     /* DO NOT EDIT BELOW THIS LINE */
-                    f=false,d=document,vwoCodeEl=document.querySelector('#vwoCode'),code={use_existing_jquery:function(){return use_existing_jquery},library_tolerance:function(){return library_tolerance},finish:function(){if(!f){f=true;var e=d.getElementById('_vis_opt_path_hides');if(e)e.parentNode.removeChild(e);}},finished:function(){return f},load:function(e){var t=d.createElement('script');t.fetchPriority='high';t.src=e;t.type='text/javascript';t.innerText;t.onerror=function(){_vwo_code.finish();};d.getElementsByTagName('head')[0].appendChild(t);},getVersion:function(){return version},getMatchedCookies:function(e){var t=[];if(document.cookie){t=document.cookie.match(e)||[];}return t},getCombinationCookie:function(){var e=code.getMatchedCookies(/(?:^|;)\s?(_vis_opt_exp_\d+_combi=[^;$]*)/gi);e=e.map(function(e){try{var t=decodeURIComponent(e);if(!/_vis_opt_exp_\d+_combi=(?:\d+,?)+\s*$/.test(t)){return ''}return t}catch(e){return ''}});var i=[];e.forEach(function(e){var t=e.match(/([\d,]+)/g);t&&i.push(t.join('-'));});return i.join('|')},init:function(){window.settings_timer=setTimeout(function(){_vwo_code.finish();},settings_tolerance);var e=d.createElement('style'),t=hide_element?hide_element+'{opacity:0 !important;filter:alpha(opacity=0) !important;background:none !important;}':'',i=d.getElementsByTagName('head')[0];e.setAttribute('id','_vis_opt_path_hides');vwoCodeEl&&e.setAttribute('nonce',vwoCodeEl.nonce);e.setAttribute('type','text/css');if(e.styleSheet)e.styleSheet.cssText=t;else e.appendChild(d.createTextNode(t));i.appendChild(e);var n=this.getCombinationCookie();this.load('https://dev.visualwebsiteoptimizer.com/j.php?a='+account_id+'&u='+encodeURIComponent(d.URL)+'&f='+ +is_spa+'&vn='+version+(n?'&c='+n:''));return settings_timer}};window._vwo_settings_timer = code.init();return code;}());
+                    f=false,d=document,vwoCodeEl=document.querySelector('#vwoCode'),code={use_existing_jquery:function(){return use_existing_jquery},library_tolerance:function(){return library_tolerance},finish:function(){if(!f){f=true;var e=d.getElementById('_vis_opt_path_hides');if(e)e.parentNode.removeChild(e);}},finished:function(){return f},load:function(e){var t=d.createElement('script');t.fetchPriority='high';t.src=e;t.type='text/javascript';t.innerText;t.onerror=function(){_vwo_code.finish();};d.getElementsByTagName('head')[0].appendChild(t);},getVersion:function(){return version},getMatchedCookies:function(e){var t=[];if(document.cookie){t=document.cookie.match(e)||[];}return t},getCombinationCookie:function(){var e=code.getMatchedCookies(/(?:^|;)\s?(_vis_opt_exp_\d+_combi=[^;$]*)/gi);e=e.map(function(e){try{var t=decodeURIComponent(e);if(!/_vis_opt_exp_\d+_combi=(?:\d+,?)+\s*$/.test(t)){return ''}return t}catch(e){return ''}});var i=[];e.forEach(function(e){var t=e.match(/([\d,]+)/g);t&&i.push(t.join('-'));});return i.join('|')},init:function(){window.settings_timer=setTimeout(function(){_vwo_code.finish();},settings_tolerance);var e=d.createElement('style'),t=hide_element+'{opacity:0 !important;filter:alpha(opacity=0) !important;background:none !important;}',i=d.getElementsByTagName('head')[0];e.setAttribute('id','_vis_opt_path_hides');vwoCodeEl&&e.setAttribute('nonce',vwoCodeEl.nonce);e.setAttribute('type','text/css');if(e.styleSheet)e.styleSheet.cssText=t;else e.appendChild(d.createTextNode(t));i.appendChild(e);var n=this.getCombinationCookie();this.load('https://dev.visualwebsiteoptimizer.com/j.php?a='+account_id+'&u='+encodeURIComponent(d.URL)+'&f='+ +is_spa+'&vn='+version+(n?'&c='+n:''));return settings_timer}};window._vwo_settings_timer = code.init();return code;}());
             }
             else {
                 console.error('Please update proper Event-Arch account to proceed with VWO');
@@ -243,27 +233,42 @@ var VWOKit = (function (exports) {
 
     var sessionHandler_1 = sessionHandler;
 
-    /*
-    The 'mParticleUser' is an object with methods on it to get user Identities and set/get user attributes
-    Partners can determine what userIds are available to use in their SDK
-    Call mParticleUser.getUserIdentities() to return an object of userIdentities --> { userIdentities: {customerid: '1234', email: 'email@gmail.com'} }
-    For more identity types, see http://docs.mparticle.com/developers/sdk/javascript/identity#allowed-identity-types
-    Call mParticleUser.getMPID() to get mParticle ID
-    For any additional methods, see http://docs.mparticle.com/developers/sdk/javascript/apidocs/classes/mParticle.Identity.getCurrentUser().html
-    */
+    function updateVWOVisitorAttributes(key, value) {
+        console.log(`Key: ${key} / Value: ${value}`);
+        var attributes = {};
+        attributes[key] = value;
+        var sourceObject = {
+            source: 'mparticle.web'
+        };
+        if (window.VWO) {
+            window.VWO.visitor = window.VWO.visitor || function () {window.VWO.push(["visitor"].concat([].slice.call(arguments)));};
+            console.log(attributes);
+            window.VWO.visitor(attributes, sourceObject);
+        } else {
+            console.error('Please use Event-Arch account only to proceed with VWO');
+        }
+    }
 
     function UserAttributeHandler(common) {
         this.common = common || {};
     }
-    UserAttributeHandler.prototype.onRemoveUserAttribute = function(
-        key,
-        mParticleUser
-    ) {};
+
     UserAttributeHandler.prototype.onSetUserAttribute = function(
         key,
         value,
         mParticleUser
+    ) {
+        var formatedKey = this.common.prependSource(key);
+        updateVWOVisitorAttributes(formatedKey, value);
+    };
+
+    // Not required
+
+    UserAttributeHandler.prototype.onRemoveUserAttribute = function(
+        key,
+        mParticleUser
     ) {};
+
     UserAttributeHandler.prototype.onConsentStateUpdated = function(
         oldState,
         newState,
