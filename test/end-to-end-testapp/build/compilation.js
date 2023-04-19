@@ -3,10 +3,6 @@ var VWOKit = (function (exports) {
 
     function Common() {}
 
-    Common.prototype.prependSource = function (name) {
-        return `mparticle.${name}`;
-    };
-
     var common = Common;
 
     function CommerceHandler(common) {
@@ -76,44 +72,52 @@ var VWOKit = (function (exports) {
 
     var commerceHandler = CommerceHandler;
 
-    // function prependSource(name) {
-    //     return `mparticle.${name}`;
-    // }
+    function prependSource (name) {
+        return `mparticle.${name}`;
+    }
 
-    function formatAttributes(attributes, sanitizeName) {
+    function formatAttributes(attributes) {
         var formattedAttributes = {};
         for (var key in attributes) {
-            var sanitisedAttributeKey = sanitizeName(key);
+            var sanitisedAttributeKey = prependSource(key);
             formattedAttributes[sanitisedAttributeKey] = attributes[key];
         }
         return formattedAttributes;
     }
 
-    function triggerVWOEvent(event, sanitizeName) {
-        console.log(`Event:`, event);
-        var attributes = {};
-        var sourceObject = {
+    var helpers = {
+        formatAttributes,
+        prependSource
+    };
+
+    function triggerVWOEvent(event) {
+        
+        var vwoMetaObject = {
             source: 'mparticle.web'
         };
+
+        var attributes = event.EventAttributes || {};
         if (event.CustomFlags && Object.keys(event.CustomFlags).length) {
-            attributes = event.CustomFlags;
-        } else {
-            attributes = event.EventAttributes;
-        }
+            attributes = {
+                ...attributes,
+                ...event.CustomFlags
+            };
+        } 
 
         if (window.VWO) {
             console.log(`Event Category: ${event.EventCategory}`);
             // mParticle.EventType.UserPreference, UserContent
             if (event.EventCategory === 6 || event.EventCategory === 5) { 
                 window.VWO.visitor = window.VWO.visitor || function () {window.VWO.push(["visitor"].concat([].slice.call(arguments)));};
-                var formattedAttributes = formatAttributes(attributes, sanitizeName);
+                var formattedAttributes = helpers.formatAttributes(attributes);
                 console.log(formattedAttributes);
-                window.VWO.visitor(formattedAttributes, sourceObject);
+                window.VWO.visitor(formattedAttributes, vwoMetaObject);
             } else {
                 window.VWO.event = window.VWO.event || function () {window.VWO.push(["event"].concat([].slice.call(arguments)));};
-                var formatedEventName = sanitizeName(event.EventName);
+                vwoMetaObject['ogName'] = event.EventName;
+                var formatedEventName = helpers.prependSource(event.EventName);
                 console.log(`Formated Name: ${formatedEventName}`);
-                window.VWO.event(formatedEventName, event.EventAttributes, sourceObject);
+                window.VWO.event(formatedEventName, event.EventAttributes, vwoMetaObject);
             }
         } else {
             console.error('Please use Event-Arch account only to proceed with VWO');
@@ -125,7 +129,7 @@ var VWOKit = (function (exports) {
     }
 
     EventHandler.prototype.logEvent = function(event) {
-        triggerVWOEvent(event, this.common.prependSource);
+        triggerVWOEvent(event);
     };
 
     // Not required for our use case
@@ -200,7 +204,7 @@ var VWOKit = (function (exports) {
     */
         initForwarder: function(forwarderSettings, testMode, userAttributes, userIdentities, processEvent, eventQueue, isInitialized, common, appVersion, appName, customFlags, clientId) {
             /* `forwarderSettings` contains your SDK specific settings such as apiKey that your customer needs in order to initialize your SDK properly */
-            if(forwarderSettings.accountId) {
+            if(forwarderSettings.includeVWOSmartCode && forwarderSettings.accountId) {
                 window._vwo_code=window._vwo_code || (function() {
                     var account_id=forwarderSettings.accountId,
                     version= 1.4,
@@ -236,13 +240,13 @@ var VWOKit = (function (exports) {
         console.log(`Key: ${key} / Value: ${value}`);
         var attributes = {};
         attributes[key] = value;
-        var sourceObject = {
+        var vwoMetaObject = {
             source: 'mparticle.web'
         };
         if (window.VWO) {
             window.VWO.visitor = window.VWO.visitor || function () {window.VWO.push(["visitor"].concat([].slice.call(arguments)));};
-            console.log(attributes);
-            window.VWO.visitor(attributes, sourceObject);
+            console.log('Attributes', attributes);
+            window.VWO.visitor(attributes, vwoMetaObject);
         } else {
             console.error('Please use Event-Arch account only to proceed with VWO');
         }
@@ -257,7 +261,7 @@ var VWOKit = (function (exports) {
         value,
         mParticleUser
     ) {
-        var formatedKey = this.common.prependSource(key);
+        var formatedKey = helpers.prependSource(key);
         updateVWOVisitorAttributes(formatedKey, value);
     };
 
@@ -760,14 +764,11 @@ var VWOKit = (function (exports) {
     }
 
     var SDKsettings = {
-        /* fill in SDKsettings with any particular settings or options your sdk requires in order to
-        initialize, this may be apiKey, projectId, primaryCustomerType, etc. These are passed
-        into the src/initialization.js file as the
-        */
-       accountId: 654331, // Mandatory field
-       settingsTolerance: 2000,
-       libraryTolerance: 2500,
-       useExistingJquery: false,
+        accountId: 654331, // Mandatory field
+        settingsTolerance: 2000,
+        libraryTolerance: 2500,
+        useExistingJquery: false,
+        includeVWOSmartCode: true
     };
 
     // Do not edit below:

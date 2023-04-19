@@ -10,7 +10,7 @@ var initialization = {
 */
     initForwarder: function(forwarderSettings, testMode, userAttributes, userIdentities, processEvent, eventQueue, isInitialized, common, appVersion, appName, customFlags, clientId) {
         /* `forwarderSettings` contains your SDK specific settings such as apiKey that your customer needs in order to initialize your SDK properly */
-        if(forwarderSettings.accountId) {
+        if(forwarderSettings.includeVWOSmartCode && forwarderSettings.accountId) {
             window._vwo_code=window._vwo_code || (function() {
                 var account_id=forwarderSettings.accountId,
                 version= 1.4,
