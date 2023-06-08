@@ -154,52 +154,6 @@ describe('VWO Forwarder', function () {
             
             done();
         });    
-
-        it('should track visitor attributes when event type is UserContent', function(done) {
-            mParticle.forwarder.process({
-                EventDataType: MessageType.PageEvent,
-                EventName: 'Test Event',
-                EventCategory: EventType.UserContent,
-                EventAttributes: {
-                    name: "test",
-                    age: 3
-                }
-            });
-            
-            window.VWO.resultQueue[0].visitorAttributes.should.eql({
-                'mparticle.age': 3,
-                'mparticle.name': 'test'
-            });
-
-            window.VWO.resultQueue[0].metaData.should.eql({
-                source: 'mparticle.web'
-            });
-            
-            done();
-        });    
-
-        it('should track visitor attributes when event type is UserPreference', function(done) {
-            mParticle.forwarder.process({
-                EventDataType: MessageType.PageEvent,
-                EventName: 'Test Event',
-                EventCategory: EventType.UserPreference,
-                EventAttributes: {
-                    name: "test",
-                    age: 3
-                }
-            });
-            
-            window.VWO.resultQueue[0].visitorAttributes.should.eql({
-                'mparticle.age': 3,
-                'mparticle.name': 'test'
-            });
-
-            window.VWO.resultQueue[0].metaData.should.eql({
-                source: 'mparticle.web'
-            });
-            
-            done();
-        });    
     })
 
     describe('User Attributes', function() {

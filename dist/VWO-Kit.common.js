@@ -106,17 +106,11 @@ function triggerVWOEvent(event) {
     } 
 
     if (window.VWO) {
-        // mParticle.EventType.UserPreference, UserContent
-        if (event.EventCategory === 6 || event.EventCategory === 5) { 
-            window.VWO.visitor = window.VWO.visitor || function () {window.VWO.push(["visitor"].concat([].slice.call(arguments)));};
-            var formattedAttributes = helpers.formatAttributes(attributes);
-            window.VWO.visitor(formattedAttributes, vwoMetaObject);
-        } else {
-            window.VWO.event = window.VWO.event || function () {window.VWO.push(["event"].concat([].slice.call(arguments)));};
-            vwoMetaObject['ogName'] = event.EventName;
-            var formatedEventName = helpers.prependSource(event.EventName);
-            window.VWO.event(formatedEventName, event.EventAttributes, vwoMetaObject);
-        }
+        window.VWO.event = window.VWO.event || function () {window.VWO.push(["event"].concat([].slice.call(arguments)));};
+        vwoMetaObject['ogName'] = event.EventName;
+        var formatedEventName = helpers.prependSource(event.EventName);
+        window.VWO.event(formatedEventName, event.EventAttributes, vwoMetaObject);
+        
     } else {
         console.error('Please use Event-Arch account only to proceed with VWO');
     }
