@@ -1,5 +1,5 @@
 /* eslint-disable no-undef*/
-describe('XYZ Forwarder', function () {
+describe('VWO Forwarder', function () {
     // -------------------DO NOT EDIT ANYTHING BELOW THIS LINE-----------------------
     var MessageType = {
             SessionStart: 1,
@@ -73,82 +73,44 @@ describe('XYZ Forwarder', function () {
 // -------------------DO NOT EDIT ANYTHING ABOVE THIS LINE-----------------------
 // -------------------START EDITING BELOW:-----------------------
 // -------------------mParticle stubs - Add any additional stubbing to our methods as needed-----------------------
-    mParticle.Identity = {
-        getCurrentUser: function() {
-            return {
-                getMPID: function() {
-                    return '123';
-                }
+    // mParticle.Identity = {
+    //     getCurrentUser: function() {
+    //         return {
+    //             getMPID: function() {
+    //                 return '123';
+    //             }
 
-            };
+    //         };
+    //     }
+    // };
+// -------------------START EDITING BELOW:-----------------------
+    var VWOMockForwarder = function() {
+        var self = this;
+        this.resultQueue = [];
+        this.event = function(eventName, eventProperties = null, metaData = null) {
+            self.resultQueue.push({
+                eventName,
+                eventProperties,
+                metaData
+            })
+        }
+        this.visitor = function(visitorAttributes, metaData = null) {
+            self.resultQueue.push({
+                visitorAttributes,
+                metaData
+            })
         }
     };
-// -------------------START EDITING BELOW:-----------------------
-    var MockXYZForwarder = function() {
-        var self = this;
-
-        // create properties for each type of event you want tracked, see below for examples
-        this.trackCustomEventCalled = false;
-        this.logPurchaseEventCalled = false;
-        this.initializeCalled = false;
-
-        this.trackCustomName = null;
-        this.logPurchaseName = null;
-        this.apiKey = null;
-        this.appId = null;
-        this.userId = null;
-        this.userAttributes = {};
-        this.userIdField = null;
-
-        this.eventProperties = [];
-        this.purchaseEventProperties = [];
-
-        // stub your different methods to ensure they are being called properly
-        this.initialize = function(appId, apiKey) {
-            self.initializeCalled = true;
-            self.apiKey = apiKey;
-            self.appId = appId;
-        };
-
-        this.stubbedTrackingMethod = function(name, eventProperties){
-            self.trackCustomEventCalled = true;
-            self.trackCustomName = name;
-            self.eventProperties.push(eventProperties);
-            // Return true to indicate event should be reported
-            return true;
-        };
-
-        this.stubbedUserAttributeSettingMethod = function(userAttributes) {
-            self.userId = id;
-            userAttributes = userAttributes || {};
-            if (Object.keys(userAttributes).length) {
-                for (var key in userAttributes) {
-                    if (userAttributes[key] === null) {
-                        delete self.userAttributes[key];
-                    }
-                    else {
-                        self.userAttributes[key] = userAttributes[key];
-                    }
-                }
-            }
-        };
-
-        this.stubbedUserLoginMethod = function(id) {
-            self.userId = id;
-        };
-    };
-
-    before(function () {
-
-    });
 
     beforeEach(function() {
-        window.MockXYZForwarder = new MockXYZForwarder();
+        window.VWO = new VWOMockForwarder();
         // Include any specific settings that is required for initializing your SDK here
         var sdkSettings = {
-            clientKey: '123456',
-            appId: 'abcde',
-            userIdField: 'customerId'
+            accountId: 654331, // Mandatory field
+            settingsTolerance: 2000,
+            libraryTolerance: 2500,
+            useExistingJquery: false,
+            includeVWOSmartCode: true
         };
         // You may require userAttributes or userIdentities to be passed into initialization
         var userAttributes = {
@@ -164,113 +126,47 @@ describe('XYZ Forwarder', function () {
             Identity: 'facebook',
             Type: IdentityType.Facebook
         }];
+
         mParticle.forwarder.init(sdkSettings, reportService.cb, true, null, userAttributes, userIdentities);
     });
+    describe('Custom Events', function() {
+        it('should track custom event', function(done) {
+            mParticle.forwarder.process({
+                EventDataType: MessageType.PageEvent,
+                EventName: 'Test Event',
+                EventAttributes: {
+                    label: 'label',
+                    value: 200,
+                    category: 'category'
+                }
+            });
+            
+            window.VWO.resultQueue[0].eventName.should.equal("mparticle.Test Event");
+            window.VWO.resultQueue[0].eventProperties.should.eql({
+                label: 'label',
+                value: 200,
+                category: 'category'
+            });
+            window.VWO.resultQueue[0].metaData.should.eql({
+                ogName: 'Test Event',
+                source: 'mparticle.web'
+            });
+            
+            done();
+        });    
+    })
 
-    it('should log event', function(done) {
-        // mParticle.forwarder.process({
-        //     EventDataType: MessageType.PageEvent,
-        //     EventName: 'Test Event',
-        //     EventAttributes: {
-        //         label: 'label',
-        //         value: 200,
-        //         category: 'category'
-        //     }
-        // });
-        
-        // window.MockXYZForwarder.eventProperties[0].label.should.equal('label');
-        // window.MockXYZForwarder.eventProperties[0].value.should.equal(200);
-
-        done();
-    });
-
-    it('should log page view', function(done) {
-        // mParticle.forwarder.process({
-        //     EventDataType: MessageType.PageView,
-        //     EventName: 'test name',
-        //     EventAttributes: {
-        //         attr1: 'test1',
-        //         attr2: 'test2'
-        //     }
-        // });
-        //
-        // window.MockXYZForwarder.trackCustomEventCalled.should.equal(true);
-        // window.MockXYZForwarder.trackCustomName.should.equal('test name');
-        // window.MockXYZForwarder.eventProperties[0].attr1.should.equal('test1');
-        // window.MockXYZForwarder.eventProperties[0].attr2.should.equal('test2');
-
-        done();
-    });
-
-    it('should log a product purchase commerce event', function(done) {
-        // mParticle.forwarder.process({
-        //     EventName: 'Test Purchase Event',
-        //     EventDataType: MessageType.Commerce,
-        //     EventCategory: EventType.ProductPurchase,
-        //     ProductAction: {
-        //         ProductActionType: ProductActionType.Purchase,
-        //         ProductList: [
-        //             {
-        //                 Sku: '12345',
-        //                 Name: 'iPhone 6',
-        //                 Category: 'Phones',
-        //                 Brand: 'iPhone',
-        //                 Variant: '6',
-        //                 Price: 400,
-        //                 TotalAmount: 400,
-        //                 CouponCode: 'coupon-code',
-        //                 Quantity: 1
-        //             }
-        //         ],
-        //         TransactionId: 123,
-        //         Affiliation: 'my-affiliation',
-        //         TotalAmount: 450,
-        //         TaxAmount: 40,
-        //         ShippingAmount: 10,
-        //         CouponCode: null
-        //     }
-        // });
-        //
-        // window.MockXYZForwarder.trackCustomEventCalled.should.equal(true);
-        // window.MockXYZForwarder.trackCustomName.should.equal('Purchase');
-        //
-        // window.MockXYZForwarder.eventProperties[0].Sku.should.equal('12345');
-        // window.MockXYZForwarder.eventProperties[0].Name.should.equal('iPhone 6');
-        // window.MockXYZForwarder.eventProperties[0].Category.should.equal('Phones');
-        // window.MockXYZForwarder.eventProperties[0].Brand.should.equal('iPhone');
-        // window.MockXYZForwarder.eventProperties[0].Variant.should.equal('6');
-        // window.MockXYZForwarder.eventProperties[0].Price.should.equal(400);
-        // window.MockXYZForwarder.eventProperties[0].TotalAmount.should.equal(400);
-        // window.MockXYZForwarder.eventProperties[0].CouponCode.should.equal('coupon-code');
-        // window.MockXYZForwarder.eventProperties[0].Quantity.should.equal(1);
-
-        done();
-    });
-
-    it('should set customer id user identity on user identity change', function(done) {
-        // var fakeUserStub = {
-        //     getUserIdentities: function() {
-        //         return {
-        //             userIdentities: {
-        //                 customerid: '123'
-        //             }
-        //         };
-        //     },
-        //     getMPID: function() {
-        //         return 'testMPID';
-        //     },
-        //     setUserAttribute: function() {
-        //
-        //     },
-        //     removeUserAttribute: function() {
-        //
-        //     }
-        // };
-        //
-        // mParticle.forwarder.onUserIdentified(fakeUserStub);
-        //
-        // window.MockXYZForwarder.userId.should.equal('123');
-
-        done();
-    });
+    describe('User Attributes', function() {
+        it('should set visitor attributes on setting user attribute', function(done) {
+            mParticle.forwarder.setUserAttribute('key', 'value');
+            window.VWO.resultQueue[0].visitorAttributes.should.eql({
+                'mparticle.key': 'value'
+            });
+            window.VWO.resultQueue[0].metaData.should.eql({
+                source: 'mparticle.web'
+            });
+            done();
+        });
+    })
+    
 });
